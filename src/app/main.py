@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from app.db import db
 from user.routes import register_user_routes
-from signal.routes import register_signal_routes
+from sos_signal.routes import register_signal_routes
 from . import settings
 
 app = FastAPI(title='SigConn SOS', docs_url='/docs')
