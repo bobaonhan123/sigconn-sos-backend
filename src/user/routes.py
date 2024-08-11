@@ -3,9 +3,9 @@ import jwt
 from app.db import db
 from src.app import settings
 from .models import LoginRequest,SignUpRequest, TokenData
-from .helpers import get_password_hash, authenticate_user, create_access_token, get_user, get_user_from_token
+from helpers.authorization import get_password_hash, authenticate_user, create_access_token, get_user, get_user_from_token
 from typing import Annotated, Union
-from .helpers import oauth2_scheme
+from helpers.authorization import oauth2_scheme
 
 def register_user_routes(app: FastAPI):
     @app.post('/login')
