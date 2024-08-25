@@ -35,4 +35,5 @@ def register_user_routes(app: FastAPI):
     
     @app.get('/current-user')
     async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
+        print(token)
         return get_user_from_token(token)

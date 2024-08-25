@@ -1,11 +1,11 @@
 from typing import Annotated
 from bson import ObjectId
-from fastapi import FastAPI, HTTPException, Depends, Query, WebSocket
+from fastapi import FastAPI, HTTPException, Depends, Query, WebSocket, WebSocketDisconnect
 from datetime import datetime, timedelta
-from .models import SignalRequest 
+from .models import SignalRequest, UserSocket 
 from app.db import db
 from helpers.authorization import get_user_from_token, oauth2_scheme, optional_oauth2_scheme
-from .connection_manager import connection_manager
+from .connection_manager import connection_manager, chat_manager
 
 def register_signal_routes(app: FastAPI):
 
@@ -39,10 +39,11 @@ def register_signal_routes(app: FastAPI):
     @app.post('/signal')
     async def create_signal(request: SignalRequest, token: Annotated[str, Depends(optional_oauth2_scheme)] = None):
         data = dict(request)
-        data["timestamp"] = datetime.now()
+        data["timestamp"] = datetime.now().isoformat()
         if token:
             data['user'] = get_user_from_token(token)['username']
         print(data)
+        await connection_manager.broadcast(data)
         db['signals'].insert_one(data)
         return {'message': 'Signal created successfully'}
     
@@ -69,3 +70,25 @@ def register_signal_routes(app: FastAPI):
             print(data)
         except Exception as e:
             print(e)
+        finally:
+            connection_manager.disconnect(websocket)
+            
+    @app.websocket('/signal-chat/{signal_id}')
+    async def websocket_endpoint(websocket: WebSocket, signal_id: str):
+        token = websocket.query_params.get('token')
+        user = get_user_from_token(token)
+        await chat_manager.connect(websocket, user['username'], signal_id)
+        
+        try:
+            while True:
+                message = await websocket.receive_text()
+                data={'message': message, 'username': user['username'], 'signal_id': signal_id}
+                db['chats'].insert_one(data)
+                await chat_manager.broadcast(data, signal_id)
+        
+        except WebSocketDisconnect:
+            chat_manager.disconnect(websocket, signal_id)
+        
+        except Exception as e:
+            print(e)
+            chat_manager.disconnect(websocket, signal_id)
